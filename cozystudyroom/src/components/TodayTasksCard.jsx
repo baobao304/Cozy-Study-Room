@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 
 function TodayTasksCard() {
   // Default tasks used when there is no saved data.
@@ -43,6 +43,27 @@ function TodayTasksCard() {
     } catch (err) {
       console.warn("Failed to save tasks to localStorage:", err);
     }
+  }, [tasks]);
+
+  // UI filter state: 'all' | 'completed' | 'active'
+  const [filter, setFilter] = useState("all");
+
+  // Memoize the filtered list so we only recompute when `tasks` or `filter` change.
+  // useMemo runs during render, and re-runs the function only when dependencies change.
+  // This helps avoid expensive recalculations on every render when they aren't needed.
+  const filteredTasks = useMemo(() => {
+    if (filter === "completed") return tasks.filter((t) => t.done);
+    if (filter === "active") return tasks.filter((t) => !t.done);
+    return tasks;
+  }, [tasks, filter]);
+
+  // Compute statistics (total, completed, percentage) and memoize the result.
+  // This keeps the calculations cheap — they run only when `tasks` changes.
+  const stats = useMemo(() => {
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.done).length;
+    const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+    return { total, completed, percent };
   }, [tasks]);
 
   // Controlled input: value comes from `input` state, onChange updates it.
@@ -93,8 +114,70 @@ function TodayTasksCard() {
         <button type="submit">Add task</button>
       </form>
 
+      <div
+        className="task-controls"
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          marginTop: 12,
+        }}
+      >
+        <div style={{ display: "flex", gap: 8 }} aria-label="Filter tasks">
+          <button
+            type="button"
+            onClick={() => setFilter("all")}
+            aria-pressed={filter === "all"}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              background: filter === "all" ? "var(--glass)" : "transparent",
+            }}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("active")}
+            aria-pressed={filter === "active"}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              background: filter === "active" ? "var(--glass)" : "transparent",
+            }}
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("completed")}
+            aria-pressed={filter === "completed"}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              background:
+                filter === "completed" ? "var(--glass)" : "transparent",
+            }}
+          >
+            Completed
+          </button>
+        </div>
+
+        <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 13 }}>
+          <div>
+            <strong>Total:</strong> {stats.total}
+          </div>
+          <div>
+            <strong>Done:</strong> {stats.completed}
+          </div>
+          <div>
+            <strong>Completion:</strong> {stats.percent}%
+          </div>
+        </div>
+      </div>
+
       <ul className="task-list">
-        {tasks.map((task) => (
+        {filteredTasks.map((task) => (
           <li key={task.id}>
             <label>
               <input
